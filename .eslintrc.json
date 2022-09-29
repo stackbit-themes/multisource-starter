@@ -1,0 +1,25 @@
+{
+    "extends": ["next/core-web-vitals", "prettier"],
+    "rules": {
+        "indent": [
+            "error",
+            4
+        ],
+        "linebreak-style": [
+            "error",
+            "unix"
+        ],
+        "quotes": [
+            "error",
+            "single",
+            { "avoidEscape": true }
+        ],
+        "semi": [
+            "error",
+            "always"
+        ],
+        "no-unused-vars": 0,
+        "max-len": ["error", { "code": 160 }],
+        "object-curly-spacing": ["error", "always"]
+    }
+}
