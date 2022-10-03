@@ -25,9 +25,9 @@ export class AirtableContentSource implements ContentSourceTypes.ContentSourceIn
     onContentChange: null | ((contentChangeEvent: ContentSourceTypes.ContentChangeEvent<unknown, unknown>) => void) = null;
 
     constructor({ apiKey, baseId, manageUrl }: ContentSourceOptions) {
-        this.apiKey = apiKey ?? process.env.AIRTABLE_API_KEY;
-        this.baseId = baseId ?? process.env.AIRTABLE_BASE_ID;
-        this.manageUrl = manageUrl ?? process.env.AIRTABLE_MANAGE_URL;
+        this.apiKey = apiKey;
+        this.baseId = baseId;
+        this.manageUrl = manageUrl;
     }
 
     getContentSourceType(): string {
@@ -43,7 +43,7 @@ export class AirtableContentSource implements ContentSourceTypes.ContentSourceIn
     }
 
     getProjectManageUrl(): string {
-        return this.manageUrl ?? 'https://www.example.com';
+        return this.manageUrl || 'https://www.example.com';
     }
 
     async init({ logger, userLogger, localDev }: ContentSourceTypes.InitOptions): Promise<void> {

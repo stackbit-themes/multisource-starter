@@ -33,7 +33,7 @@ export function convertAirtableRecordsToStackbitDocuments(
             updatedAt: record._rawJson.createdTime,
             context: null,
             fields: Object.entries(record.fields).reduce((fields, [fieldName, fieldValue]) => {
-                const field = (model.fields ?? []).find((field) => field.name === fieldName);
+                const field = (model.fields || []).find((field) => field.name === fieldName);
                 if (!field) {
                     return fields;
                 }
@@ -93,7 +93,7 @@ function convertField(field: FieldSpecificProps, fieldValue: any): ContentSource
         }
         return {
             type: 'list',
-            items: fieldValue.map((item) => convertField(field.items ?? { type: 'string' }, item))
+            items: fieldValue.map((item) => convertField(field.items || { type: 'string' }, item))
         };
     }
 
