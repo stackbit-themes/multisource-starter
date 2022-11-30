@@ -1,6 +1,5 @@
 import createSanityClient from '@sanity/client';
 
-const preview = process.env.NODE_ENV === 'development';
 const DRAFT_ID_PREFIX = 'drafts.';
 
 function isDraftId(docId: string) {
@@ -21,7 +20,12 @@ function overlayDrafts(documents: any[]) {
 
     return documents.filter((document) => {
         return isDraftId(document._id) || !(document._id in draftDocumentIdMap);
-    });
+    }).map((document) => ({
+        ...document,
+        // replace draft id with pure id to ensure that cross-references are
+        // linked correctly using the pure id.
+        _id: getPureObjectId(document._id)
+    }));
 }
 
 function withoutDrafts(documents: any[]) {
@@ -30,7 +34,7 @@ function withoutDrafts(documents: any[]) {
     });
 }
 
-export async function getDocuments() {
+export async function getDocuments(isPreview: boolean) {
     const projectId = process.env.SANITY_PROJECT_ID;
     if (!projectId) {
         throw new Error('SANITY_PROJECT_ID environment variable was not provided');
@@ -47,7 +51,7 @@ export async function getDocuments() {
         useCdn: false
     });
     const sanityDocuments = await client.fetch('*[!(_id in path("_.**"))]');
-    if (preview) {
+    if (isPreview) {
         return overlayDrafts(sanityDocuments);
     } else {
         return withoutDrafts(sanityDocuments);

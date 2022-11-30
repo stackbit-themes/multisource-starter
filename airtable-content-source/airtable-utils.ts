@@ -1,37 +1,45 @@
 import Airtable from 'airtable';
-import type { ContentSourceTypes } from '@stackbit/cms-core';
-import type { FieldSpecificProps } from '@stackbit/sdk';
 
-export async function fetchTable(base: Airtable.Base, tableName: string): Promise<Airtable.Records<Airtable.FieldSet>> {
-    const query = base(tableName).select();
+import type { ModelMap, FieldSpecificProps, Document, DocumentField, DocumentFieldNonLocalized, DocumentValueFieldNonLocalized, Asset } from '@stackbit/types';
+
+export async function fetchTable<Fields extends Airtable.FieldSet>(base: Airtable.Base, tableName: string): Promise<Airtable.Records<Fields>> {
+    const table = base<Fields>(tableName);
+    const query = table.select();
     return await query.all();
+}
+
+export type DocumentContext = {
+    id: string;
 }
 
 const STATUS_MAP = {
     draft: 'added',
     changed: 'modified',
+    deleted: 'deleted',
     published: 'published',
-    deleted: 'deleted'
+    'published-changed': 'published',
+    'published-deleted': 'deleted'
 } as const;
 
 type Status = keyof typeof STATUS_MAP;
 
-export function convertAirtableRecordsToStackbitDocuments(
-    records: Airtable.Records<Airtable.FieldSet>,
-    modelMap: ContentSourceTypes.ModelMap
-): ContentSourceTypes.Document[] {
-    return records.map((record): ContentSourceTypes.Document => {
+export function convertAirtableRecordsToStackbitDocuments(records: Airtable.Records<Airtable.FieldSet>, modelMap: ModelMap): Document<DocumentContext>[] {
+    return records.map((record): Document<DocumentContext> => {
         const status = typeof record.fields.Status === 'string' && record.fields.Status in STATUS_MAP ? STATUS_MAP[record.fields.Status as Status] : 'added';
         const model = modelMap[record._table.name];
         return {
             type: 'document',
-            id: record.id,
+            // replace the id of a changed record to the id of the published document
+            // this is to ensure that when published documents are edited, their ids in stackbit are preserved.
+            id: record.fields.Status === 'changed' ? (record.fields.Related! as string[])[0] as string : record.id,
             manageUrl: 'https://www.example.com',
             modelName: record._table.name,
             status: status,
             createdAt: record._rawJson.createdTime,
             updatedAt: record._rawJson.createdTime,
-            context: null,
+            context: {
+                id: record.id
+            },
             fields: Object.entries(record.fields).reduce((fields, [fieldName, fieldValue]) => {
                 const field = (model.fields || []).find((field) => field.name === fieldName);
                 if (!field) {
@@ -39,14 +47,14 @@ export function convertAirtableRecordsToStackbitDocuments(
                 }
                 fields[fieldName] = convertField(field, fieldValue);
                 return fields;
-            }, {} as Record<string, ContentSourceTypes.DocumentField>)
+            }, {} as Record<string, DocumentField>)
         };
     });
 }
 
-export function convertAirtableRecordsToStackbitAssets(records: Airtable.Records<Airtable.FieldSet>): ContentSourceTypes.Asset[] {
+export function convertAirtableRecordsToStackbitAssets(records: Airtable.Records<Airtable.FieldSet>): Asset[] {
     return records
-        .map((record): ContentSourceTypes.Asset | null => {
+        .map((record): Asset | null => {
             const asset = Array.isArray(record.fields.Asset) ? (record.fields.Asset[0] as Airtable.Attachment) : null;
             if (!asset) {
                 return null;
@@ -80,10 +88,10 @@ export function convertAirtableRecordsToStackbitAssets(records: Airtable.Records
                 }
             };
         })
-        .filter((value): value is ContentSourceTypes.Asset => !!value);
+        .filter((value): value is Asset => !!value);
 }
 
-function convertField(field: FieldSpecificProps, fieldValue: any): ContentSourceTypes.DocumentFieldNonLocalized {
+function convertField(field: FieldSpecificProps, fieldValue: any): DocumentFieldNonLocalized {
     if (field.type === 'list') {
         if (!Array.isArray(fieldValue)) {
             return {
@@ -118,5 +126,5 @@ function convertField(field: FieldSpecificProps, fieldValue: any): ContentSource
     return {
         type: field.type,
         value: fieldValue
-    } as ContentSourceTypes.DocumentValueFieldNonLocalized;
+    } as DocumentValueFieldNonLocalized;
 }

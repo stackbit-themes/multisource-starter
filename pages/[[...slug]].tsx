@@ -1,17 +1,21 @@
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
+import Markdown from 'markdown-to-jsx';
+import { useState } from 'react';
 import type { Entry } from 'contentful';
 import type { GetStaticProps, GetStaticPaths, NextPage } from 'next';
 
 import { getDocuments } from '../content-utils/sanity-utils';
 import { getEntries } from '../content-utils/contentful-utils';
-import { getAirtableRecords, ResolvedRecord } from '../content-utils/airtable-utils';
+import { getAirtableRecords, HeroSectionProps as AirtableSectionProps } from '../content-utils/airtable-utils';
 
 import styles from '../styles/Home.module.css';
 
+const isPreview = process.env.NODE_ENV === 'development';
+
 export const getStaticPaths: GetStaticPaths = async () => {
-    const pageEntries = await getEntries({ content_type: 'page' });
+    const pageEntries = await getEntries({ isPreview, query: { content_type: 'page' } });
     const paths = pageEntries.map((page: Entry<any>) => {
         const slug = page.fields.slug.replace(/^\/|\/$/g, '');
         return { params: { slug: slug.split('/') } };
@@ -23,25 +27,39 @@ export const getStaticPaths: GetStaticPaths = async () => {
 };
 
 export const getStaticProps: GetStaticProps<HomeProps, { slug: string[] }> = async ({ params }) => {
-    const pageEntries = await getEntries({ content_type: 'page' });
+    const pageEntries = await getEntries({ isPreview, query: { content_type: 'page' } });
     const urlPath = '/' + (params?.slug || []).join('/');
-    if (urlPath !== '/') {
+    const pageEntry = pageEntries.find((pageEntry) => {
+        return pageEntry.fields.slug.replace(/^\/|\/$/g, '') === urlPath.replace(/^\/|\/$/g, '');
+    });
+    if (!pageEntry) {
         return {
             props: {
+                contentfulSpaceId: process.env.CONTENTFUL_SPACE_ID!,
+                sanityProjectId: process.env.SANITY_PROJECT_ID!,
+                airtableBaseId: process.env.AIRTABLE_BASE_ID!,
                 pageEntries: pageEntries,
-                contentfulEntries: [],
+                pageEntry: null,
+                contentfulSectionEntries: [],
+                contentfulCrossReferenceSectionsEntries: [],
                 sanityDocuments: [],
                 airtableRecords: []
             }
         };
     }
-    const contentfulHeroSectionEntries = await getEntries({ content_type: 'contentfulSection' });
-    const sanityDocuments = await getDocuments();
-    const airtableRecords = await getAirtableRecords();
+    const contentfulSectionEntries = await getEntries({ isPreview, query: { content_type: 'contentfulSection' } });
+    const contentfulCrossReferenceSectionsEntries = await getEntries({ isPreview, query: { content_type: 'crossReferenceSection' } });
+    const sanityDocuments = await getDocuments(isPreview);
+    const airtableRecords = await getAirtableRecords(isPreview);
     return {
         props: {
+            contentfulSpaceId: process.env.CONTENTFUL_SPACE_ID!,
+            sanityProjectId: process.env.SANITY_PROJECT_ID!,
+            airtableBaseId: process.env.AIRTABLE_BASE_ID!,
             pageEntries: pageEntries,
-            contentfulEntries: contentfulHeroSectionEntries,
+            pageEntry: pageEntry,
+            contentfulSectionEntries: contentfulSectionEntries,
+            contentfulCrossReferenceSectionsEntries: contentfulCrossReferenceSectionsEntries,
             sanityDocuments: sanityDocuments,
             airtableRecords: airtableRecords
         }
@@ -49,10 +67,15 @@ export const getStaticProps: GetStaticProps<HomeProps, { slug: string[] }> = asy
 };
 
 type HomeProps = {
+    contentfulSpaceId: string;
+    sanityProjectId: string;
+    airtableBaseId: string;
     pageEntries: Entry<any>[];
-    contentfulEntries: Entry<any>[];
+    pageEntry: Entry<any> | null;
+    contentfulSectionEntries: Entry<any>[];
+    contentfulCrossReferenceSectionsEntries: Entry<any>[];
     sanityDocuments: any[];
-    airtableRecords: ResolvedRecord[];
+    airtableRecords: AirtableSectionProps[];
 };
 
 const Home: NextPage<HomeProps> = (props) => {
@@ -80,37 +103,9 @@ const Home: NextPage<HomeProps> = (props) => {
                     })}
                 </ul>
 
-                <div className={styles.grid}>
-                    <p className={styles.description}>
-                        <img src="/contentful-icon.svg" style={{ height: 20 }} /> Content from Contentful
-                    </p>
-                    {props.contentfulEntries.map((entry, index) => (
-                        <div className={styles.card} key={index} data-sb-object-id={entry.sys.id}>
-                            <h2 data-sb-field-path="title">{entry.fields.title}</h2>
-                            <p data-sb-field-path="subtitle">{entry.fields.subtitle}</p>
-                        </div>
-                    ))}
+                <SectionIds {...props} />
 
-                    <p className={styles.description}>
-                        <img src="/sanity-icon.png" style={{ height: 24 }} /> Content from Sanity
-                    </p>
-                    {props.sanityDocuments.map((doc, index) => (
-                        <div className={styles.card} key={index} data-sb-object-id={doc._id}>
-                            <h2 data-sb-field-path="title">{doc.title}</h2>
-                            <p data-sb-field-path="subtitle">{doc.subtitle}</p>
-                        </div>
-                    ))}
-
-                    <p className={styles.description}>
-                        <img src="/airtable-icon.svg" style={{ height: 24 }} /> Content from Airtable
-                    </p>
-                    {props.airtableRecords.map((record, index) => (
-                        <div className={styles.card} key={index} data-sb-object-id={record.id}>
-                            <h2 data-sb-field-path="Title">{record.fields.Title as string}</h2>
-                            <p data-sb-field-path="Subtitle">{record.fields.Subtitle as string}</p>
-                        </div>
-                    ))}
-                </div>
+                {props.pageEntry ? <Sections {...props} /> : <h2>Page Not Found</h2>}
             </main>
 
             <footer className={styles.footer}>
@@ -124,5 +119,114 @@ const Home: NextPage<HomeProps> = (props) => {
         </div>
     );
 };
+
+function SectionIds(props: HomeProps) {
+    const [shown, setShown] = useState(false);
+    return (
+        <div className={styles.sectionIds}>
+            <p style={{ textAlign: 'center', textDecoration: 'underline', cursor: 'pointer' }} onClick={() => setShown(!shown)}>
+                section IDs
+            </p>
+            {shown && (
+                <ul>
+                    <li>Sanity project id: {props.sanityProjectId}</li>
+                    <li>Airtable base id: {props.airtableBaseId}</li>
+                    {props.sanityDocuments.map((doc, index) => {
+                        return <li key={index}>sanity, {doc._id.replace('drafts.', '')}</li>;
+                    })}
+                    {props.airtableRecords.map((record, index) => {
+                        if (record.Status === 'changed') {
+                            return <li key={index}>airtable, {record.Related![0]} (published-changed)</li>;
+                        } else {
+                            return (
+                                <li key={index}>
+                                    airtable, {record.id} ({record.Status})
+                                </li>
+                            );
+                        }
+                    })}
+                </ul>
+            )}
+        </div>
+    );
+}
+
+function Sections(props: HomeProps) {
+    return (
+        <div className={styles.grid} data-sb-object-id={props.pageEntry?.sys.id}>
+            {props.pageEntry?.fields.sections.map((section: any, index: number) => {
+                if (section.sys.contentType.sys.id === 'contentfulSection') {
+                    return <ContentfulSection key={index} entry={section} sectionIndex={index} />;
+                } else if (section.sys.contentType.sys.id === 'crossReferenceSection') {
+                    const crossReferenceSection = props.contentfulCrossReferenceSectionsEntries.find((entry) => entry.sys.id === section.sys.id);
+                    if (crossReferenceSection) {
+                        if (crossReferenceSection.fields.contentSourceType === 'sanity') {
+                            const sanitySection = props.sanityDocuments.find((doc) => doc._id === crossReferenceSection.fields.referenceId);
+                            if (sanitySection) {
+                                return <SanitySection key={index} document={sanitySection} sectionIndex={index} />;
+                            }
+                        } else if (crossReferenceSection.fields.contentSourceType === 'airtable') {
+                            const airtableSection = props.airtableRecords.find((record) => record.id === crossReferenceSection.fields.referenceId);
+                            if (airtableSection) {
+                                return <AirtableSection key={index} record={airtableSection} sectionIndex={index} />;
+                            }
+                        }
+                    }
+                }
+                return null;
+            })}
+        </div>
+    );
+}
+
+function ContentfulSection({ entry, sectionIndex }: { entry: Entry<any>, sectionIndex: number }) {
+    return (
+        <div data-sb-field-path={`.sections[${sectionIndex}]`}>
+            <div className={styles.card} data-sb-object-id={entry.sys.id}>
+                <div className={styles.contentSourceIcon}>
+                    <img src="/contentful-icon.svg" style={{ height: 20 }} />
+                </div>
+                <h2 data-sb-field-path="title">{entry.fields.title}</h2>
+                {entry.fields.subtitle && (
+                    <div data-sb-field-path="subtitle">
+                        <Markdown>{entry.fields.subtitle}</Markdown>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function SanitySection({ document, sectionIndex }: { document: any; sectionIndex: number }) {
+    return (
+        <div data-sb-field-path={`.sections[${sectionIndex}]`}>
+            <div className={styles.card} data-sb-object-id={document._id}>
+                <div className={styles.contentSourceIcon}>
+                    <img src="/sanity-icon.png" style={{ height: 24 }} />
+                </div>
+                <h2 data-sb-field-path="title">{document.title}</h2>
+                <p data-sb-field-path="subtitle">{document.subtitle}</p>
+            </div>
+        </div>
+    );
+}
+
+function AirtableSection({ record, sectionIndex }: { record: AirtableSectionProps; sectionIndex: number}) {
+    return (
+        <div data-sb-field-path={`.sections[${sectionIndex}]`}>
+            <div className={styles.card} data-sb-object-id={record.id}>
+                <div className={styles.contentSourceIcon}>
+                    <img src="/airtable-icon.svg" style={{ height: 24 }} />
+                </div>
+                <h2 data-sb-field-path="Title">{record.Title}</h2>
+                {record.Subtitle && (
+                    <div data-sb-field-path="Subtitle">
+                        <Markdown>{record.Subtitle}</Markdown>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default Home;

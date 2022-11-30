@@ -1,6 +1,7 @@
-import type { Model } from '@stackbit/sdk';
+import Airtable from 'airtable';
+import type { Model } from '@stackbit/types';
 
-export const HeroSection: Model = {
+export const HeroSectionModel: Model = {
     type: 'data',
     name: 'HeroSection',
     label: 'Hero Section',
@@ -25,11 +26,32 @@ export const HeroSection: Model = {
         {
             type: 'image',
             name: 'Asset'
+        },
+        {
+            type: 'enum',
+            name: 'Status',
+            options: ['draft', 'changed', 'deleted', 'published', 'published-changed', 'published-deleted'],
+            hidden: true
+        },
+        {
+            type: 'reference',
+            name: 'Related',
+            models: ['HeroSection'],
+            hidden: true
         }
     ]
 };
 
-export const Button: Model = {
+export type HeroSectionFields = {
+    Title?: string;
+    Subtitle?: string;
+    Buttons?: string[];
+    Asset?: string[];
+    Status: 'draft' | 'changed' | 'deleted' | 'published' | 'published-changed' | 'published-deleted';
+    Related?: string[];
+};
+
+export const ButtonModel: Model = {
     type: 'data',
     name: 'Button',
     label: 'Button',
@@ -42,6 +64,30 @@ export const Button: Model = {
         {
             type: 'slug',
             name: 'Slug'
+        },
+        {
+            type: 'enum',
+            name: 'Status',
+            options: ['draft', 'changed', 'deleted', 'published', 'published-changed', 'published-deleted'],
+            hidden: true
+        },
+        {
+            type: 'reference',
+            name: 'Related',
+            models: ['Button'],
+            hidden: true
         }
     ]
+};
+
+export type ButtonFields = {
+    Label?: string;
+    Slug?: string;
+    Status: 'draft' | 'changed' | 'deleted' | 'published' | 'published-changed' | 'published-deleted';
+    Related?: string[];
+};
+
+export type AssetFields = {
+    Title?: string;
+    Asset: Airtable.Attachment[];
 };

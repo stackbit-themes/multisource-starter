@@ -56,7 +56,7 @@
 }
 
 .navLinks {
-  margin: 4rem 0;
+  margin: 4rem 0 2rem;
   line-height: 1.5;
   font-size: 1.5rem;
   list-style: none;
@@ -87,6 +87,16 @@
   max-width: 800px;
 }
 
+.sectionIds {
+  composes: grid;
+  margin-bottom: 2rem;
+}
+
+.sectionIds li {
+  font-family: monospace;
+  font-size: 1rem;
+}
+
 .card {
   margin: 1rem;
   padding: 1.5rem;
@@ -104,6 +114,10 @@
 .card:active {
   color: #0070f3;
   border-color: #0070f3;
+}
+
+.contentSourceIcon {
+  float: right;
 }
 
 .card h2 {

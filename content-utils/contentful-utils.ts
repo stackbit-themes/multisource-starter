@@ -1,14 +1,12 @@
 import { createClient, Entry } from 'contentful';
 
-const preview = process.env.NODE_ENV === 'development';
-
-export async function getEntries(query: any): Promise<Entry<any>[]> {
+export async function getEntries({ isPreview, query }: { isPreview: boolean, query: any }): Promise<Entry<any>[]> {
     const spaceId = process.env.CONTENTFUL_SPACE_ID;
     if (!spaceId) {
         throw new Error('CONTENTFUL_SPACE_ID environment variable was not provided');
     }
     let accessToken;
-    if (preview) {
+    if (isPreview) {
         const previewToken = process.env.CONTENTFUL_PREVIEW_TOKEN;
         if (!previewToken) {
             throw new Error('CONTENTFUL_PREVIEW_TOKEN environment variable was not provided');
@@ -24,7 +22,7 @@ export async function getEntries(query: any): Promise<Entry<any>[]> {
     const client = createClient({
         space: spaceId,
         accessToken: accessToken,
-        ...(preview ? { host: 'preview.contentful.com' } : {})
+        ...(isPreview ? { host: 'preview.contentful.com' } : {})
     });
     const entries = await client.getEntries(query);
     return entries.items;
