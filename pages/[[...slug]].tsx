@@ -154,7 +154,7 @@ function SectionIds(props: HomeProps) {
 function Sections(props: HomeProps) {
     return (
         <div className={styles.grid} data-sb-object-id={props.pageEntry?.sys.id}>
-            {props.pageEntry?.fields.sections.map((section: any, index: number) => {
+            {(props.pageEntry?.fields.sections ?? []).map((section: any, index: number) => {
                 if (section.sys.contentType.sys.id === 'contentfulSection') {
                     return <ContentfulSection key={index} entry={section} sectionIndex={index} />;
                 } else if (section.sys.contentType.sys.id === 'crossReferenceSection') {
