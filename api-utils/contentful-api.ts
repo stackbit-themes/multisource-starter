@@ -1,6 +1,26 @@
 import { createClient, Entry } from 'contentful';
 
-export async function getEntries({ isPreview, query }: { isPreview: boolean, query: any }): Promise<Entry<any>[]> {
+export interface ContentfulSectionFields {
+    title?: string;
+    subtitle?: string;
+}
+
+export interface ContentfulPageFields {
+    title: string;
+    slug: string;
+    crossReferenceSections: string[];
+}
+
+export type ContentfulSectionEntry = Entry<ContentfulSectionFields>;
+export type ContentfulPageEntry = Entry<ContentfulPageFields>;
+
+export async function getEntries<Fields extends ContentfulSectionFields | ContentfulPageFields>({
+    isPreview,
+    query
+}: {
+    isPreview: boolean;
+    query: any;
+}): Promise<Entry<Fields>[]> {
     const spaceId = process.env.CONTENTFUL_SPACE_ID;
     if (!spaceId) {
         throw new Error('CONTENTFUL_SPACE_ID environment variable was not provided');
@@ -24,6 +44,6 @@ export async function getEntries({ isPreview, query }: { isPreview: boolean, que
         accessToken: accessToken,
         ...(isPreview ? { host: 'preview.contentful.com' } : {})
     });
-    const entries = await client.getEntries(query);
+    const entries = await client.getEntries<Fields>(query);
     return entries.items;
 }

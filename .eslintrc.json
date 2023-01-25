@@ -1,11 +1,7 @@
 {
     "extends": ["next/core-web-vitals", "prettier"],
     "rules": {
-        "indent": [
-            "error",
-            4,
-            { "SwitchCase": 1 }
-        ],
+        "indent": ["error", 4, { "SwitchCase": 1 }],
         "linebreak-style": [
             "error",
             "unix"
@@ -20,7 +16,8 @@
             "always"
         ],
         "no-unused-vars": 0,
-        "max-len": ["error", { "code": 160 }],
+        "max-len": ["warn", { "code": 160 }],
+        "comma-dangle": ["error", "never"],
         "object-curly-spacing": ["error", "always"]
     }
 }
